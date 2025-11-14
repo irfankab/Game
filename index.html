@@ -1,0 +1,146 @@
+<!DOCTYPE html><html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Memory Tiles – Human Benchmark Style</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>
+        :root{
+            --bg:#121212;
+            --tile:#1e1e1e;
+            --tile-lit:#fff;
+            --wrong:#e53935;
+            --correct:#43a047;
+            --accent:#00acc1;
+            --text:#eee;
+        }
+        *{box-sizing:border-box}
+        body{
+            margin:0;
+            min-height:100vh;
+            background:var(--bg);
+            color:var(--text);
+            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            user-select:none;
+        }
+        #topBar{
+            position:fixed;
+            top:0;
+            left:0;
+            right:0;
+            display:flex;
+            justify-content:space-between;
+            padding:12px 20px;
+            font-size:1.1em;
+            background:rgba(0,0,0,.35);
+            backdrop-filter:blur(4px);
+        }
+        #topBar span{margin:0 8px}
+        #board{
+            display:grid;
+            grid-template-columns:repeat(6,70px);
+            grid-gap:6px;
+            margin-top:60px;
+        }
+        .tile{
+            width:70px;
+            height:70px;
+            background:var(--tile);
+            border-radius:4px;
+            cursor:pointer;
+            transition:transform .15s, background .15s;
+        }
+        .tile.white{background:var(--tile-lit)}
+        .tile.correct{background:var(--correct)}
+        .tile.wrong{background:var(--wrong)}
+        .tile:active{transform:scale(.95)}
+        #msg{margin-top:18px;font-size:1.2em;letter-spacing:.5px}
+        button{
+            margin-top:14px;
+            padding:.55em 1.4em;
+            font-size:1.05em;
+            border:none;
+            border-radius:4px;
+            background:var(--accent);
+            color:#000;
+            font-weight:600;
+            cursor:pointer;
+        }
+        button:disabled{background:#555;cursor:not-allowed}
+    </style>
+</head>
+<body>
+    <div id="topBar">
+        <div>Level&nbsp;<span id="level">1</span></div>
+        <div>Lives&nbsp;<span id="lives">10</span></div>
+    </div>
+
+    <div id="board"></div>
+    <div id="msg">Press Start</div>
+    <button id="btn" onclick="nextRound()">Start</button>
+
+<script>
+const SIZE=36,FLASH=14;
+let level=0,lives=10,target=[],picked=new Set(),phase='ready',wrong=0,remain=FLASH;
+
+function gid(id){return document.getElementById(id)}
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function buildBoard(){
+    const b=document.getElementById('board');b.innerHTML='';
+    for(let i=0;i<SIZE;i++){
+        const t=document.createElement('div');t.className='tile';t.dataset.idx=i;
+        t.onclick=()=>clickTile(i);b.appendChild(t);
+    }
+}
+function showStatus(){
+    gid('level').textContent=level;
+    gid('lives').textContent=lives;
+}
+function updateRemain(){
+    // count how many WHITE (target) tiles are still NOT picked
+    remain=target.filter(idx=>!picked.has(idx)).length;
+    gid('msg').textContent=(phase==='play')?`Remaining white tiles: ${remain}`:'';
+}
+function flashTiles(){
+    phase='flash';picked.clear();wrong=0;remain=FLASH;
+    target=shuffle([...Array(SIZE).keys()]).slice(0,FLASH);
+    target.forEach(i=>document.querySelector(`[data-idx="${i}"]`).classList.add('white'));
+    setTimeout(()=>{
+        target.forEach(i=>document.querySelector(`[data-idx="${i}"]`).classList.remove('white'));
+        phase='play';updateRemain();
+    },1200);
+}
+function clickTile(i){
+    if(phase!=='play')return;
+    const t=document.querySelector(`[data-idx="${i}"]`);
+    if(picked.has(i))return;
+    picked.add(i);
+    if(target.includes(i))t.classList.add('correct');else{t.classList.add('wrong');wrong++}
+    updateRemain();
+    if(picked.size===FLASH||wrong===3)endLevel();
+}
+function endLevel(){
+    phase='result';
+    if(wrong<3){
+        level++;gid('msg').textContent='Perfect! Next level in 2 s...';
+        setTimeout(nextRound,2000);
+    }else{
+        lives--;
+        if(lives<=0){gid('msg').textContent='Game Over! Refresh to play again.';gid('btn').disabled=true;return;}
+        gid('msg').textContent='You missed 3 – lose 1 life. Next in 2 s...';
+        setTimeout(nextRound,2000);
+    }
+    showStatus();
+}
+function nextRound(){
+    document.querySelectorAll('.tile').forEach(t=>t.className='tile');
+    gid('btn').style.display='none';
+    flashTiles();
+}
+buildBoard();showStatus();
+</script>
+</body>
+</html>
