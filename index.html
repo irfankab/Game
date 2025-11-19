@@ -1,146 +1,503 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Memory Tiles – Human Benchmark Style</title>
-    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVEAGLE | The Bengal Renaissance</title>
+    
+    <!-- FONTS: Cinzel (Display), Cormorant (Body), Manrope (UI) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Manrope:wght@300;400;500&display=swap" rel="stylesheet">
+
+    <!-- LIBRARIES -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.4/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.4/ScrollTrigger.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.29/bundled/lenis.min.js"></script>
+    <script src="https://unpkg.com/split-type"></script>
+
     <style>
-        :root{
-            --bg:#121212;
-            --tile:#1e1e1e;
-            --tile-lit:#fff;
-            --wrong:#e53935;
-            --correct:#43a047;
-            --accent:#00acc1;
-            --text:#eee;
+        /* --- 1. THE ROYAL PALETTE --- */
+        :root {
+            --oxblood: #0F0202;     /* The Void */
+            --oxblood-rich: #1a0404; /* Deep Red */
+            --cream: #E6DCCA;       /* Jute */
+            --gold: #CFA558;        /* Antique Gold */
+            --gold-dim: #8a6d38;
+            --overlay: rgba(15, 2, 2, 0.8);
+            
+            --font-display: 'Cinzel', serif;
+            --font-body: 'Cormorant Garamond', serif;
+            --font-ui: 'Manrope', sans-serif;
         }
-        *{box-sizing:border-box}
-        body{
-            margin:0;
-            min-height:100vh;
-            background:var(--bg);
-            color:var(--text);
-            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-            display:flex;
-            flex-direction:column;
-            align-items:center;
-            justify-content:center;
-            user-select:none;
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background-color: var(--oxblood);
+            color: var(--cream);
+            font-family: var(--font-body);
+            overflow-x: hidden;
+            cursor: none;
         }
-        #topBar{
-            position:fixed;
-            top:0;
-            left:0;
-            right:0;
-            display:flex;
-            justify-content:space-between;
-            padding:12px 20px;
-            font-size:1.1em;
-            background:rgba(0,0,0,.35);
-            backdrop-filter:blur(4px);
+
+        a { text-decoration: none; color: inherit; }
+        img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+        /* --- 2. UTILS & TEXTURE --- */
+        .uppercase { text-transform: uppercase; letter-spacing: 0.2em; }
+        .gold { color: var(--gold); }
+        .ui-text { font-family: var(--font-ui); font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; }
+
+        /* Grain */
+        .noise {
+            position: fixed; inset: 0; pointer-events: none; z-index: 9000; opacity: 0.06;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            mix-blend-mode: soft-light;
         }
-        #topBar span{margin:0 8px}
-        #board{
-            display:grid;
-            grid-template-columns:repeat(6,70px);
-            grid-gap:6px;
-            margin-top:60px;
+
+        /* Custom Cursor */
+        .cursor-dot {
+            position: fixed; top:0; left:0; width: 6px; height: 6px; background: var(--gold);
+            border-radius: 50%; z-index: 10001; pointer-events: none; transform: translate(-50%, -50%);
         }
-        .tile{
-            width:70px;
-            height:70px;
-            background:var(--tile);
-            border-radius:4px;
-            cursor:pointer;
-            transition:transform .15s, background .15s;
+        .cursor-ring {
+            position: fixed; top:0; left:0; width: 40px; height: 40px;
+            border: 1px solid rgba(207, 165, 88, 0.3); border-radius: 50%;
+            z-index: 10000; pointer-events: none; transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s, background-color 0.3s;
         }
-        .tile.white{background:var(--tile-lit)}
-        .tile.correct{background:var(--correct)}
-        .tile.wrong{background:var(--wrong)}
-        .tile:active{transform:scale(.95)}
-        #msg{margin-top:18px;font-size:1.2em;letter-spacing:.5px}
-        button{
-            margin-top:14px;
-            padding:.55em 1.4em;
-            font-size:1.05em;
-            border:none;
-            border-radius:4px;
-            background:var(--accent);
-            color:#000;
-            font-weight:600;
-            cursor:pointer;
+        body.hovering .cursor-ring { width: 80px; height: 80px; background: rgba(207, 165, 88, 0.05); border-color: var(--gold); }
+
+        /* --- 3. ENTRY CURTAIN (PRELOADER) --- */
+        .curtain-loader {
+            position: fixed; inset: 0; z-index: 20000; display: flex; pointer-events: none;
         }
-        button:disabled{background:#555;cursor:not-allowed}
+        .curtain-panel {
+            width: 50%; height: 100%; background: var(--oxblood);
+            position: relative; z-index: 2;
+        }
+        .curtain-left { border-right: 1px solid rgba(207, 165, 88, 0.1); }
+        
+        .loader-content {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 3; text-align: center; mix-blend-mode: difference;
+        }
+        .loader-text {
+            font-family: var(--font-display); font-size: 3rem; letter-spacing: 0.2em;
+            color: var(--gold); overflow: hidden;
+        }
+
+        /* --- 4. NAVIGATION --- */
+        nav {
+            position: fixed; top: 0; width: 100%; padding: 2rem 4rem;
+            display: flex; justify-content: space-between; align-items: center;
+            z-index: 9000; mix-blend-mode: difference;
+        }
+        .logo { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; letter-spacing: 0.1em; }
+        
+        .menu-btn { display: flex; align-items: center; gap: 1rem; cursor: pointer; }
+        .burger { width: 30px; height: 10px; display: flex; flex-direction: column; justify-content: space-between; }
+        .burger span { width: 100%; height: 1px; background: #fff; transition: 0.3s; }
+        .menu-btn:hover .burger span:nth-child(1) { width: 50%; margin-left: auto; }
+        .menu-btn:hover .burger span:nth-child(2) { width: 50%; margin-right: auto; }
+
+        /* Menu Overlay */
+        .menu-overlay {
+            position: fixed; inset: 0; background: #080101; z-index: 8500;
+            transform: translateY(-100%); display: flex; align-items: center; justify-content: center;
+            flex-direction: column;
+        }
+        .menu-link {
+            font-family: var(--font-display); font-size: 4vw; color: var(--cream); margin: 0.5rem 0;
+            opacity: 0; transform: translateY(50px); transition: 0.3s; cursor: pointer;
+        }
+        .menu-link:hover { color: var(--gold); letter-spacing: 0.05em; }
+
+        /* --- 5. CINEMATIC HERO --- */
+        .hero {
+            height: 100vh; width: 100%; position: relative;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        
+        /* Background Image Layer */
+        .hero-bg-container {
+            position: absolute; inset: 0; z-index: 0;
+        }
+        .hero-img {
+            width: 100%; height: 100%; object-fit: cover;
+            transform: scale(1.4); /* Starts zoomed in for animation */
+            filter: brightness(0.5) contrast(1.1);
+        }
+
+        /* Text Layers */
+        .hero-content {
+            position: relative; z-index: 2; text-align: center;
+            mix-blend-mode: overlay; /* High fashion blending */
+        }
+        
+        .hero-title {
+            font-family: var(--font-display); font-size: 13vw; line-height: 0.8;
+            color: #fff; opacity: 0; /* Animated in */
+            text-shadow: 0 0 50px rgba(0,0,0,0.5);
+        }
+        
+        .hero-subtitle {
+            font-family: var(--font-ui); letter-spacing: 0.5em; text-transform: uppercase;
+            margin-top: 2rem; color: var(--gold); opacity: 0;
+        }
+
+        .scroll-cue {
+            position: absolute; bottom: 3rem; left: 50%; transform: translateX(-50%);
+            z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 10px; opacity: 0;
+        }
+        .scroll-line { width: 1px; height: 60px; background: var(--gold); }
+
+        /* --- 6. VERTICAL CURTAIN SCROLL (STACKING) --- */
+        .curtain-wrapper {
+            width: 100%; position: relative; z-index: 5;
+        }
+        
+        .curtain-section {
+            position: sticky; top: 0; height: 100vh; width: 100%;
+            overflow: hidden; display: flex;
+            box-shadow: 0 -50px 100px rgba(0,0,0,0.8);
+        }
+
+        /* Specific Panel Colors for Depth */
+        .panel-1 { background: var(--oxblood); z-index: 10; }
+        .panel-2 { background: #1e0505; z-index: 11; }
+        .panel-3 { background: #2b0808; z-index: 12; }
+
+        .panel-split {
+            width: 100%; height: 100%; display: grid; grid-template-columns: 1fr 1.2fr;
+        }
+        
+        .panel-visual {
+            position: relative; height: 100%; border-right: 1px solid rgba(207, 165, 88, 0.1);
+            overflow: hidden;
+        }
+        .panel-img {
+            width: 100%; height: 120%; object-fit: cover;
+            transition: transform 1s;
+        }
+        
+        .panel-info {
+            display: flex; flex-direction: column; justify-content: center; padding: 8vw;
+        }
+        .panel-num { font-family: var(--font-display); font-size: 6rem; color: rgba(255,255,255,0.05); line-height: 0; margin-bottom: 2rem; }
+        .panel-head { font-family: var(--font-display); font-size: 4rem; margin-bottom: 1.5rem; line-height: 1; }
+        .panel-body { font-size: 1.2rem; line-height: 1.6; color: rgba(230, 220, 202, 0.8); max-width: 500px; }
+
+        /* --- 7. COLLECTION GRID --- */
+        .archive {
+            position: relative; z-index: 20; background: #050101; padding: 15vh 5vw;
+            border-top: 1px solid var(--gold);
+        }
+        .arch-head { text-align: center; margin-bottom: 6rem; }
+        
+        .grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+            background: rgba(207, 165, 88, 0.2); border: 1px solid rgba(207, 165, 88, 0.2);
+        }
+        
+        .product {
+            background: var(--oxblood); padding: 4rem 2rem;
+            display: flex; flex-direction: column; align-items: center;
+            cursor: pointer; transition: 0.4s;
+        }
+        .product:hover { background: #130303; }
+        
+        .p-img-box {
+            width: 100%; aspect-ratio: 4/5; margin-bottom: 2rem; overflow: hidden; position: relative;
+        }
+        .p-img {
+            width: 100%; height: 100%; object-fit: cover;
+            filter: sepia(0.4) brightness(0.8); transition: 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .product:hover .p-img { transform: scale(1.1); filter: sepia(0) brightness(1); }
+        
+        .p-title { font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 0.5rem; }
+        .p-price { font-family: var(--font-ui); color: var(--gold); }
+
+        /* --- 8. FOOTER --- */
+        footer {
+            padding: 8rem 0; background: #000; text-align: center; z-index: 20; position: relative;
+        }
+        .f-logo { font-family: var(--font-display); font-size: 12vw; color: #0e0e0e; -webkit-text-stroke: 1px #222; }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            .hero-title { font-size: 18vw; }
+            .panel-split { grid-template-columns: 1fr; }
+            .panel-visual { height: 40vh; border-right: none; border-bottom: 1px solid var(--line); }
+            .grid { grid-template-columns: 1fr; }
+        }
+
     </style>
 </head>
 <body>
-    <div id="topBar">
-        <div>Level&nbsp;<span id="level">1</span></div>
-        <div>Lives&nbsp;<span id="lives">10</span></div>
+
+    <!-- Texture -->
+    <div class="noise"></div>
+    <div class="cursor-dot"></div>
+    <div class="cursor-ring"></div>
+
+    <!-- Entry Curtain (Preloader) -->
+    <div class="curtain-loader">
+        <div class="curtain-panel curtain-left"></div>
+        <div class="curtain-panel curtain-right"></div>
+        <div class="loader-content">
+            <div class="loader-text">EVEAGLE</div>
+        </div>
     </div>
 
-    <div id="board"></div>
-    <div id="msg">Press Start</div>
-    <button id="btn" onclick="nextRound()">Start</button>
+    <!-- Menu -->
+    <div class="menu-overlay">
+        <div class="menu-link interactable">The Sovereign Collection</div>
+        <div class="menu-link interactable">Atelier Hazaribagh</div>
+        <div class="menu-link interactable">Heritage & Origins</div>
+        <div class="menu-link interactable">Private Client</div>
+        <div class="ui-text gold" style="margin-top: 3rem; opacity: 0.6;">DHAKA • LONDON • MILAN</div>
+    </div>
 
-<script>
-const SIZE=36,FLASH=14;
-let level=0,lives=10,target=[],picked=new Set(),phase='ready',wrong=0,remain=FLASH;
+    <nav>
+        <div class="logo interactable">EVEAGLE.</div>
+        <div class="menu-btn interactable">
+            <span class="ui-text">Menu</span>
+            <div class="burger"><span></span><span></span></div>
+        </div>
+    </nav>
 
-function gid(id){return document.getElementById(id)}
-function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function buildBoard(){
-    const b=document.getElementById('board');b.innerHTML='';
-    for(let i=0;i<SIZE;i++){
-        const t=document.createElement('div');t.className='tile';t.dataset.idx=i;
-        t.onclick=()=>clickTile(i);b.appendChild(t);
-    }
-}
-function showStatus(){
-    gid('level').textContent=level;
-    gid('lives').textContent=lives;
-}
-function updateRemain(){
-    // count how many WHITE (target) tiles are still NOT picked
-    remain=target.filter(idx=>!picked.has(idx)).length;
-    gid('msg').textContent=(phase==='play')?`Remaining white tiles: ${remain}`:'';
-}
-function flashTiles(){
-    phase='flash';picked.clear();wrong=0;remain=FLASH;
-    target=shuffle([...Array(SIZE).keys()]).slice(0,FLASH);
-    target.forEach(i=>document.querySelector(`[data-idx="${i}"]`).classList.add('white'));
-    setTimeout(()=>{
-        target.forEach(i=>document.querySelector(`[data-idx="${i}"]`).classList.remove('white'));
-        phase='play';updateRemain();
-    },1200);
-}
-function clickTile(i){
-    if(phase!=='play')return;
-    const t=document.querySelector(`[data-idx="${i}"]`);
-    if(picked.has(i))return;
-    picked.add(i);
-    if(target.includes(i))t.classList.add('correct');else{t.classList.add('wrong');wrong++}
-    updateRemain();
-    if(picked.size===FLASH||wrong===3)endLevel();
-}
-function endLevel(){
-    phase='result';
-    if(wrong<3){
-        level++;gid('msg').textContent='Perfect! Next level in 2 s...';
-        setTimeout(nextRound,2000);
-    }else{
-        lives--;
-        if(lives<=0){gid('msg').textContent='Game Over! Refresh to play again.';gid('btn').disabled=true;return;}
-        gid('msg').textContent='You missed 3 – lose 1 life. Next in 2 s...';
-        setTimeout(nextRound,2000);
-    }
-    showStatus();
-}
-function nextRound(){
-    document.querySelectorAll('.tile').forEach(t=>t.className='tile');
-    gid('btn').style.display='none';
-    flashTiles();
-}
-buildBoard();showStatus();
-</script>
+    <div id="smooth-wrapper">
+        <div id="smooth-content">
+
+            <!-- HERO SECTION -->
+            <section class="hero">
+                <div class="hero-bg-container">
+                    <!-- Dark Moody Texture/Abstract Leather -->
+                    <img src="https://images.unsplash.com/photo-1533090161767-e6ffed986c88?q=80&w=2669&auto=format&fit=crop" class="hero-img" alt="Eveagle Texture">
+                </div>
+                
+                <div class="hero-content">
+                    <h1 class="hero-title">EVEAGLE</h1>
+                    <div class="hero-subtitle">The Bengal Renaissance</div>
+                </div>
+
+                <div class="scroll-cue">
+                    <span class="ui-text gold">Scroll</span>
+                    <div class="scroll-line"></div>
+                </div>
+            </section>
+
+            <!-- VERTICAL CURTAINS (SCROLLYTELLING) -->
+            <div class="curtain-wrapper">
+                
+                <!-- Panel 1 -->
+                <div class="curtain-section panel-1">
+                    <div class="panel-split">
+                        <div class="panel-visual">
+                            <img src="https://images.unsplash.com/photo-1628148977383-4c2c7e65d668?q=80&w=2574&auto=format&fit=crop" class="panel-img" alt="Raw Hide">
+                        </div>
+                        <div class="panel-info">
+                            <div class="panel-num">01</div>
+                            <div class="ui-text gold" style="margin-bottom:1rem;">The Origin</div>
+                            <h2 class="panel-head">Golden<br>Delta</h2>
+                            <p class="panel-body">
+                                We utilize the finest full-grain hides from Hazaribagh. Tempered by the humid air of the Bengal delta, our leather possesses a density and resilience that is unmatched globally.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 2 -->
+                <div class="curtain-section panel-2">
+                    <div class="panel-split">
+                        <div class="panel-visual">
+                            <img src="https://images.unsplash.com/photo-1598300042903-8eb8ed7a2455?q=80&w=2576&auto=format&fit=crop" class="panel-img" alt="Tools">
+                        </div>
+                        <div class="panel-info">
+                            <div class="panel-num">02</div>
+                            <div class="ui-text gold" style="margin-bottom:1rem;">The Craft</div>
+                            <h2 class="panel-head">Dhaka<br>Atelier</h2>
+                            <p class="panel-body">
+                                Crafted by third-generation cordwainers. We reject mass production. Each pair is hand-welted, ensuring a waterproof bond that lasts for decades, not seasons.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 3 -->
+                <div class="curtain-section panel-3">
+                    <div class="panel-split">
+                        <div class="panel-visual">
+                            <img src="https://images.unsplash.com/photo-1449505278894-297fdb3edbc1?q=80&w=2670&auto=format&fit=crop" class="panel-img" alt="Patina">
+                        </div>
+                        <div class="panel-info">
+                            <div class="panel-num">03</div>
+                            <div class="ui-text gold" style="margin-bottom:1rem;">The Finish</div>
+                            <h2 class="panel-head">Oxblood<br>Patina</h2>
+                            <p class="panel-body">
+                                Our signature hue. A deep, blackened red inspired by the river clay. Polished with saffron-infused wax to achieve a mirror shine that reflects our heritage.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- COLLECTION -->
+            <section class="archive">
+                <div class="arch-head">
+                    <div class="ui-text gold">The Archive</div>
+                    <h2 class="col-title" style="margin-top:1rem;">Sovereign Series</h2>
+                </div>
+
+                <div class="grid">
+                    <!-- Oxford -->
+                    <div class="product interactable">
+                        <div class="p-img-box">
+                            <img src="https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?q=80&w=2670&auto=format&fit=crop" class="p-img" alt="Oxford">
+                        </div>
+                        <div class="p-title">Padma Oxford</div>
+                        <div class="p-price">৳ 45,000</div>
+                    </div>
+                    
+                    <!-- Loafer -->
+                    <div class="product interactable">
+                        <div class="p-img-box">
+                            <img src="https://images.unsplash.com/photo-1533867617858-e7b97e060509?q=80&w=2669&auto=format&fit=crop" class="p-img" alt="Loafer">
+                        </div>
+                        <div class="p-title">Sylhet Loafer</div>
+                        <div class="p-price">৳ 38,000</div>
+                    </div>
+
+                    <!-- Boot -->
+                    <div class="product interactable">
+                        <div class="p-img-box">
+                            <img src="https://images.unsplash.com/photo-1605733513597-a8f8341084e6?q=80&w=2629&auto=format&fit=crop" class="p-img" alt="Boot">
+                        </div>
+                        <div class="p-title">Delta Boot</div>
+                        <div class="p-price">৳ 52,000</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- FOOTER -->
+            <footer>
+                <div class="f-logo">EVEAGLE</div>
+                <div class="ui-text gold" style="margin-top: 2rem;">BANGLADESH • LONDON • MILAN</div>
+            </footer>
+
+        </div>
+    </div>
+
+    <script>
+        // --- INIT ---
+        gsap.registerPlugin(ScrollTrigger);
+        
+        const lenis = new Lenis({
+            duration: 1.5,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            smooth: true
+        });
+        function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
+        requestAnimationFrame(raf);
+
+        // --- 1. ENTRY ANIMATION (CURTAIN) ---
+        const tlEntry = gsap.timeline();
+        
+        // Reveal Logo
+        tlEntry.from(".loader-text", { y: 50, opacity: 0, duration: 1, ease: "power3.out" })
+               // Open Curtains
+               .to(".curtain-left", { xPercent: -100, duration: 1.8, ease: "power4.inOut", delay: 0.5 })
+               .to(".curtain-right", { xPercent: 100, duration: 1.8, ease: "power4.inOut" }, "<")
+               .to(".loader-text", { opacity: 0, duration: 0.5 }, "<")
+               
+               // Reveal Hero Elements
+               .to(".hero-img", { scale: 1, duration: 2.5, ease: "power2.out" }, "-=1.5")
+               .to(".hero-title", { opacity: 1, y: 0, duration: 1.5, ease: "power3.out" }, "-=1.2")
+               .to(".hero-subtitle", { opacity: 1, y: 0, duration: 1.5 }, "-=1.2")
+               .to(".scroll-cue", { opacity: 1, duration: 1 }, "-=1");
+
+
+        // --- 2. MENU LOGIC ---
+        let isMenuOpen = false;
+        const menuBtn = document.querySelector('.menu-btn');
+        const menuOverlay = document.querySelector('.menu-overlay');
+        const menuText = document.querySelector('.menu-btn .ui-text');
+
+        menuBtn.addEventListener('click', () => {
+            isMenuOpen = !isMenuOpen;
+            if(isMenuOpen) {
+                menuText.textContent = "Close";
+                gsap.to(menuOverlay, { y: "0%", duration: 1.2, ease: "power4.inOut" });
+                gsap.to(".menu-link", { y: 0, opacity: 1, stagger: 0.1, duration: 0.8, delay: 0.5 });
+            } else {
+                menuText.textContent = "Menu";
+                gsap.to(menuOverlay, { y: "-100%", duration: 1, ease: "power4.inOut" });
+                gsap.to(".menu-link", { y: 50, opacity: 0, duration: 0.5 });
+            }
+        });
+
+        // --- 3. VERTICAL SCROLLYTELLING PARALLAX ---
+        // The panels stack automatically via CSS sticky.
+        // We add a subtle image scaling effect as they scroll.
+        const panels = document.querySelectorAll('.curtain-section');
+        
+        panels.forEach((panel) => {
+            const img = panel.querySelector('.panel-img');
+            gsap.fromTo(img, 
+                { scale: 1.2, yPercent: -10 },
+                { 
+                    scale: 1, yPercent: 10,
+                    scrollTrigger: {
+                        trigger: panel,
+                        start: "top bottom",
+                        end: "bottom top",
+                        scrub: true
+                    }
+                }
+            );
+        });
+
+        // --- 4. HERO PARALLAX SCROLL ---
+        gsap.to(".hero-img", {
+            yPercent: 30,
+            ease: "none",
+            scrollTrigger: {
+                trigger: ".hero",
+                start: "top top",
+                end: "bottom top",
+                scrub: true
+            }
+        });
+        gsap.to(".hero-content", {
+            yPercent: -20, opacity: 0,
+            scrollTrigger: {
+                trigger: ".hero",
+                start: "top top",
+                end: "bottom 40%",
+                scrub: true
+            }
+        });
+
+        // --- 5. CURSOR ---
+        const dot = document.querySelector('.cursor-dot');
+        const ring = document.querySelector('.cursor-ring');
+        const interactables = document.querySelectorAll('.interactable');
+
+        window.addEventListener('mousemove', (e) => {
+            gsap.to(dot, { x: e.clientX, y: e.clientY, duration: 0.1 });
+            gsap.to(ring, { x: e.clientX, y: e.clientY, duration: 0.25 });
+        });
+
+        interactables.forEach(el => {
+            el.addEventListener('mouseenter', () => document.body.classList.add('hovering'));
+            el.addEventListener('mouseleave', () => document.body.classList.remove('hovering'));
+        });
+
+    </script>
 </body>
 </html>
